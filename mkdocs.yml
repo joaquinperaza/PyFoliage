@@ -1,0 +1,12 @@
+site_name: "PyFoliage"
+
+theme:
+  name: "material"
+
+plugins:
+- search
+- mkdocstrings
+
+nav:
+    - Introduction: 'index.md'
+    - Reference: 'reference.md'

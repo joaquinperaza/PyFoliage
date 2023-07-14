@@ -38,9 +38,9 @@ For more detailed descriptions of how to use PyFoliage, see the [examples](#). T
 
 For making feature requests and reporting errors, please open an issue in the Github repository.
 
-## Privacy
+## Privacy and image metadata
 
-PyFoliage runs locally on your computer and does not collect any private user or image information.
+PyFoliage retrieves metadata such as image name, image dimensions, timestamp, and geographic coordinates already present in the images. If the images don't contain geographic coordinates, PyFoliage outputs null values. PyFoliage does not collect any private user or image information.
 
 ## License
 
