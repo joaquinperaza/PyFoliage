@@ -44,19 +44,24 @@ def cc_image(image, red_green_max=0.95, blue_green_max=0.95, ExG_min=20, plot=Fa
     # Split into channels
     r, g, b = np_img[...,0], np_img[...,1], np_img[...,2]
 
-    # Calculate ratios and ExG
-    red_green_ratio = r.astype(float) / (g.astype(float) + 1e-10)
-    blue_green_ratio = b.astype(float) / (g.astype(float) + 1e-10)
-    ExG = 2*g - r - b
+    # Calculate red to green ratio for each pixel. The result is an m x n array.
+    red_green_ratio = r / (g + 1e-100)
+
+    # Calculate blue to green ratio for each pixel. The result is an m x n array.
+    blue_green_ratio = b / (g + 1e-100)
+
+    # Excess green
+    ExG = 2 * g - r - b
 
     # Classify pixels
     bw = np.logical_and(red_green_ratio < red_green_max, blue_green_ratio < blue_green_max, ExG > ExG_min)
+    bw = np.uint8(bw)
     bw = ndimage.binary_opening(bw, structure=np.ones((10, 10))).astype(int)
 
     # If plot is True, display the images and print the canopy cover percentage
     if plot:
         # Calculate the canopy cover percentage
-        cc_percent = np.mean(bw) * 100
+        cc_percent = np.sum(bw) / np.size(bw) * 100
 
         # Create subplots
         fig, ax = plt.subplots(1, 2, figsize=(10, 5))
@@ -70,7 +75,7 @@ def cc_image(image, red_green_max=0.95, blue_green_max=0.95, ExG_min=20, plot=Fa
         ax[1].set_title('Masked Image')
 
         # Set super title with the canopy cover percentage
-        plt.suptitle(f'Canopy cover percentage: {cc_percent}%', fontsize=16)
+        plt.suptitle(f'Canopy cover percentage: {round(cc_percent,1)}%', fontsize=16)
 
         # Extract EXIF data for footer
         exif_data = img._getexif()
@@ -79,10 +84,14 @@ def cc_image(image, red_green_max=0.95, blue_green_max=0.95, ExG_min=20, plot=Fa
                 if tag in ExifTags.TAGS:
                     # Add footer text with date/time and GPS info if available
                     if ExifTags.TAGS[tag]=='DateTimeOriginal':
-                        fig.text(0.5, 0.04, f'Date/Time: {value}', ha='center')
+                        fig.text(0.5, 0.08, f'Date/Time: {value}', ha='center')
                     if ExifTags.TAGS[tag]=='GPSInfo':
-                        fig.text(0.5, 0.01, f'GPS Info: {value}', ha='center')
-
+                        # check if geolocation data is available
+                        lat = __get_decimal_from_dms(value[2], value[1])
+                        lon = __get_decimal_from_dms(value[4], value[3])
+                        fig.text(0.5, 0.04, f'GPS: {lat}, {lon}', ha='center')
+        # filename plot
+        fig.text(0.5, 0.01, image, ha='center', fontsize=6)
         # Show the plots
         plt.show()
 
@@ -102,7 +111,9 @@ def process_image(args):
             if metadata:
                 # Check if date/time data is available
                 if 36867 in metadata:
-                    data['date_time'] = metadata[36867]
+                    date = metadata[36867].split(' ')[0].replace(':', '-')
+                    time = metadata[36867].split(' ')[1]
+                    data['date_time'] = date + ' ' + time
                 # check if geolocation data is available
                 if 34853 in metadata:
                     if 2 in metadata[34853] and 4 in metadata[34853] and 1 in metadata[34853] and 3 in metadata[34853]:
@@ -125,7 +136,7 @@ def canopy_cover(images, red_green_max=0.95, blue_green_max=0.95, ExG_min=20, pa
         ExG_min (int, optional): Minimum value for the ExG index. Defaults to 20.
         parse_metadata (bool, optional): Whether to parse the metadata of the image. Defaults to True.
         save_mask (bool, optional): Whether to save the mask of the image. Defaults to False.
-        parallel (bool, optional): Whether to use parallel processing. Defaults to False.
+        parallel (bool, optional): Whether to use parallel processing (faster). Please note that this will use all the available cores in your machine, so if you are running other processes, it is recommended to set this to False. Defaults to False.
 
     Returns:
         pd.DataFrame: Pandas dataframe with the canopy cover values for each image.
